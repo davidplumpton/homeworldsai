@@ -15,9 +15,22 @@
       (is (> 3 (get-in sp [:bank :g3])))))
 
 (deftest build-move-logic
-  (testing "build y1"
-    (let [sample-position (create-sample-position)
-          after (build-move sample-position :y1 2)
-          ships (get-in after [:worlds 2 :player1])
-          bank (:bank after)]
-      (is (zero? (:y1 bank))))))
+  (let [sample-position (create-sample-position) ]
+    (testing "build y1"
+      (let [after (perform-build sample-position :y1 2)
+            ships (get-in after [:worlds 2 :player1])
+            bank (:bank after)]
+        (is (zero? (:y1 bank)))))
+    (testing "build b1"
+      (let [after (perform-build (assoc sample-position :turn :player2) :b1 4)
+            ships (get-in after [:worlds 4 :player2])
+            bank (:bank after)]
+        (is (some #{:b1} ships))))
+    (testing "build g2"
+      (let [after (perform-build sample-position :g1 2)
+            ships (get-in after [:worlds 2 :player1])
+            bank (:bank after) ]
+        (is (some #{:g2} ships))
+        (is (zero? (:g1 bank)))
+        (is (= 2 (:g2 bank)))))))
+

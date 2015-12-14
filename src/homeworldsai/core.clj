@@ -33,17 +33,18 @@
 ;; -----------------------
 
 (defn find-smallest-piece [position ship]
+  "Find the smallest piece available in the bank or nil if none."
   (let [bank (:bank position)
         colour (second (str ship)) 
         pieces (for [size [1 2 3]] (keyword (str colour size)))]
     (first (filter (fn [piece] (pos? (piece bank))) pieces))))
 
-(defn build-move
+(defn perform-build
   "Build a new ship in a given world."
   [position ship world-key]
   (let [smallest-piece (find-smallest-piece position ship)
-        player :player1]
-    (update-in (update-in position [:worlds world-key player] conj smallest-piece) [:bank ship] dec)))
+        player (:turn position)]
+    (update-in (update-in position [:worlds world-key player] conj smallest-piece) [:bank smallest-piece] dec)))
 
 (defn -main
   "I don't do a whole lot ... yet."
