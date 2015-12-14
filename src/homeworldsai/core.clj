@@ -33,8 +33,10 @@
 ;; -----------------------
 
 (defn find-smallest-piece [position ship]
-  :y1
-  )
+  (let [bank (:bank position)
+        colour (second (str ship)) 
+        pieces (for [size [1 2 3]] (keyword (str colour size)))]
+    (first (filter (fn [piece] (pos? (piece bank))) pieces))))
 
 (defn build-move
   "Build a new ship in a given world."

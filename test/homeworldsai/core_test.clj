@@ -20,8 +20,4 @@
           after (build-move sample-position :y1 2)
           ships (get-in after [:worlds 2 :player1])
           bank (:bank after)]
-      (is (not (nil? bank)))
-      (is (zero? (:y1 bank)))
-      )
-    )
-  )
+      (is (zero? (:y1 bank))))))
