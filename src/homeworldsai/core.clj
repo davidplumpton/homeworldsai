@@ -32,8 +32,12 @@
 
 ;; -----------------------
 
-(defn find-smallest-piece [position ship]
+(defn other-player [player]
+  (if (= :player1 player) :player2 :player1))
+
+(defn find-smallest-piece
   "Find the smallest piece available in the bank or nil if none."
+  [position ship]
   (let [bank (:bank position)
         colour (second (str ship)) 
         pieces (for [size [1 2 3]] (keyword (str colour size)))]
@@ -46,13 +50,23 @@
         player (:turn position)]
     (update-in (update-in position [:worlds world-key player] conj smallest-piece) [:bank smallest-piece] dec)))
 
+(defn remove-one-ship [col ship]
+  (let [[before after] (split-with #(not= % ship) col)]
+    (concat before (rest after))))
+
 (defn replace-ship [col old-ship new-ship]
-  (conj (remove #{old-ship} col) new-ship))
+  (conj (remove-one-ship col old-ship) new-ship))
 
 (defn perform-trade
   "Trade an existing ship with another colour if available."
   [position old-ship new-ship world-key]
   (update-in position [:worlds world-key (:turn position)] replace-ship old-ship new-ship))
+
+(defn perform-attack
+  "A player's ship is captured by the attacker."
+  [position attacking-ship victim-ship world-key]
+  (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-ship victim-ship)]
+    (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
 
 (defn -main
   "I don't do a whole lot ... yet."
