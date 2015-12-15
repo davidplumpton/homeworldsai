@@ -46,6 +46,14 @@
         player (:turn position)]
     (update-in (update-in position [:worlds world-key player] conj smallest-piece) [:bank smallest-piece] dec)))
 
+(defn replace-ship [col old-ship new-ship]
+  (conj (remove #{old-ship} col) new-ship))
+
+(defn perform-trade
+  "Trade an existing ship with another colour if available."
+  [position old-ship new-ship world-key]
+  (update-in position [:worlds world-key (:turn position)] replace-ship old-ship new-ship))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
