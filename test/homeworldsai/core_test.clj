@@ -57,3 +57,10 @@
         (is (not (some #{:b2} player1-ships)))
         (is (= bank-before bank-after))))))
 
+(deftest move-logic
+  (let [sample-position (create-sample-position)]
+  (testing "move g1 alice moon"
+    (let [g1-ships-before (count (filter #(= :g1 %) (get-in sample-position [:worlds 2 :player1])))
+          after (perform-move sample-position :g1 0 2)]
+      (is (not (some #{:g1} (get-in after [:worlds 0 :player1]))))
+      (is (= (inc g1-ships-before) (count (filter #(= :g1 %) (get-in after [:worlds 2 :player1])))))))))

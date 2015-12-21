@@ -68,6 +68,12 @@
   (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-ship victim-ship)]
     (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
 
+(defn perform-move
+  "A player's ship moves from one world to another."
+  [position ship source-world-key dest-world-key]
+  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)]
+    (update-in removed [:worlds dest-world-key (:turn position)] conj ship)))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
