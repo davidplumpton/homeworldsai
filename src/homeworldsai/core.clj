@@ -23,11 +23,11 @@
   "Something to work with."
   []
   (let [pos (assoc initial-position :worlds
-               {0 {:stars [:b1 :y2] :player1 [:g3 :g1] :name "alice"},
-                1 {:stars [:b2 :g3] :player2 [:y3 :b2] :name "bob"},
-                2 {:stars [:b3] :player1 [:y1 :g1] :name "moon"},
-                3 {:stars [:g1] :player2 [:y1] :name "farside"},
-                4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat"}})]
+                   {0 {:stars [:b1 :y2] :player1 [:g3 :g1] :name "alice"},
+                    1 {:stars [:b2 :g3] :player2 [:y3 :b2] :name "bob"},
+                    2 {:stars [:b3] :player1 [:y1 :g1] :name "moon"},
+                    3 {:stars [:g1] :player2 [:y1] :name "farside"},
+                    4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat"}})]
     (assoc pos :bank (rebuild-bank pos))))
 
 ;; -----------------------

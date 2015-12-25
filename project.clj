@@ -6,4 +6,5 @@
   :dependencies [[org.clojure/clojure "1.7.0"]]
   :main ^:skip-aot homeworldsai.core
   :target-path "target/%s"
+  :plugins [[lein-cljfmt "0.3.0"]]
   :profiles {:uberjar {:aot :all}})
