@@ -19,6 +19,9 @@
   (let [used-pyramids (mapcat get-pyramids-in-world (vals (:worlds position)))]
     (reduce (fn [m k] (update m k dec)) initial-bank used-pyramids)))
 
+(defn rebuild-bank-in-position [position]
+  (assoc position :bank (rebuild-bank position)))
+
 (defn create-sample-position
   "Something to work with."
   []
@@ -27,7 +30,8 @@
                     1 {:stars [:b2 :g3] :player2 [:y3 :b2] :name "bob"},
                     2 {:stars [:b3] :player1 [:y1 :g1] :name "moon"},
                     3 {:stars [:g1] :player2 [:y1] :name "farside"},
-                    4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat"}})]
+                    4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat"}}
+                    :next-world 5)]
     (assoc pos :bank (rebuild-bank pos))))
 
 ;; -----------------------
@@ -73,6 +77,21 @@
   [position ship source-world-key dest-world-key]
   (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)]
     (update-in removed [:worlds dest-world-key (:turn position)] conj ship)))
+
+(defn create-world [star]
+  {:stars [star] :player1 [] :player2 []})
+
+(defn perform-discover
+  "A player's ship moves to a newly discovered world."
+  [position ship source-world-key star]
+  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)
+        new-world (create-world star)
+        dest-world-key (:next-world position)]
+    (-> removed
+        (assoc-in [:worlds dest-world-key] new-world)
+        (update-in [:worlds dest-world-key (:turn position)] conj ship)
+        (update-in [:next-world] inc)
+        rebuild-bank-in-position)))
 
 (defn -main
   "I don't do a whole lot ... yet."

@@ -64,3 +64,14 @@
             after (perform-move sample-position :g1 0 2)]
         (is (not (some #{:g1} (get-in after [:worlds 0 :player1]))))
         (is (= (inc g1-ships-before) (count (filter #(= :g1 %) (get-in after [:worlds 2 :player1])))))))))
+
+(deftest discover-logic
+  (testing "discover g1 alice y3 new-name"
+    (let [sample-position (create-sample-position)
+          after (perform-discover sample-position :g1 0 :y3)]
+      (is (= [:y3] (get-in after [:worlds 5 :stars])))
+      (is (some #{:g1} (get-in after [:worlds 5 :player1])))
+      (is (not (some #{:g1} (get-in after [:worlds 0 :player1]))))
+      (is (= 1 (get-in after [:bank :y3]))))
+    )
+  )
