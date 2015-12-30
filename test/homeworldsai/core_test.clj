@@ -72,6 +72,5 @@
       (is (= [:y3] (get-in after [:worlds 5 :stars])))
       (is (some #{:g1} (get-in after [:worlds 5 :player1])))
       (is (not (some #{:g1} (get-in after [:worlds 0 :player1]))))
-      (is (= 1 (get-in after [:bank :y3]))))
-    )
-  )
+      (is (not= (:bank sample-position) (:bank after)))
+      (is (= 1 (get-in after [:bank :y3]))))))

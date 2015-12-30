@@ -52,7 +52,9 @@
   [position ship world-key]
   (let [smallest-piece (find-smallest-piece position ship)
         player (:turn position)]
-    (update-in (update-in position [:worlds world-key player] conj smallest-piece) [:bank smallest-piece] dec)))
+    (-> position
+        (update-in [:worlds world-key player] conj smallest-piece)
+        (update-in [:bank smallest-piece] dec))))
 
 (defn remove-one-ship [col ship]
   (let [[before after] (split-with #(not= % ship) col)]
