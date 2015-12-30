@@ -3,6 +3,8 @@
 
 (defonce pyramids (for [colour ["r" "g" "b" "y"] size ["1" "2" "3"]] (keyword (.concat colour size))))
 
+(defonce players [:player1 :player2])
+
 ;; Three of everything
 (defonce initial-bank (zipmap pyramids (repeat 3)))
 
@@ -13,7 +15,7 @@
 
 ;; --------- Testing support code
 (defn get-pyramids-in-world [world]
-  (reduce concat (map world [:stars :player1 :player2])))
+  (reduce concat (map world (conj players :stars))))
 
 (defn rebuild-bank [position]
   (let [used-pyramids (mapcat get-pyramids-in-world (vals (:worlds position)))]
@@ -36,6 +38,7 @@
 
 ;; -----------------------
 
+;; Needs to be extended to multiple players
 (defn other-player [player]
   (if (= :player1 player) :player2 :player1))
 
@@ -74,26 +77,39 @@
   (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-ship victim-ship)]
     (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
 
+(defn return-star-to-bank [position world-key]
+  (let [star (first (get-in position [:worlds world-key :stars]))]
+    (-> position
+        (update-in [:worlds] dissoc world-key)
+        (update-in [:bank star] inc))))
+
+(defn return-star-to-bank-if-empty [position world-key]
+  (if (every? empty? (concat (vals (select-keys players (get-in position [:worlds world-key])))))
+    (return-star-to-bank position world-key)
+    position))
+
 (defn perform-move
-  "A player's ship moves from one world to another."
+  "A player's ship moves from one world to another. Return a star to the bank if necessary."
   [position ship source-world-key dest-world-key]
-  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)]
-    (update-in removed [:worlds dest-world-key (:turn position)] conj ship)))
+  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)
+        ship-moved (update-in removed [:worlds dest-world-key (:turn position)] conj ship)]
+    (return-star-to-bank-if-empty ship-moved source-world-key)))
 
 (defn create-world [star]
-  {:stars [star] :player1 [] :player2 []})
+  (reduce #(assoc %1 %2 []) {:stars [star]} players))
 
 (defn perform-discover
-  "A player's ship moves to a newly discovered world."
+  "A player's ship moves to a newly discovered world. Return a star to the bank if necessary."
   [position ship source-world-key star]
   (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)
         new-world (create-world star)
         dest-world-key (:next-world position)]
     (-> removed
         (assoc-in [:worlds dest-world-key] new-world)
+        (update-in [:bank star] dec)
         (update-in [:worlds dest-world-key (:turn position)] conj ship)
         (update-in [:next-world] inc)
-        rebuild-bank-in-position)))
+        (return-star-to-bank-if-empty source-world-key))))
 
 (defn -main
   "I don't do a whole lot ... yet."
