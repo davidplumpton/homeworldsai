@@ -90,3 +90,9 @@
         (is (= 1 (get-in after-move [:bank :g1])))
         (is (nil? (get-in after-move [:worlds 3])))))))
 
+(deftest sacrifice-logic
+  (let [sample-position (create-sample-position)]
+    (testing "sacrificing a ship returns it to the bank"
+      (let [after-move (perform-sacrifice sample-position :g1 2)]
+        (is (= 1 (get-in after-move [:bank :g1])))
+        (is (= '[:y1] (get-in after-move [:worlds 2 :player1])))))))

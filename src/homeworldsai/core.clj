@@ -96,7 +96,7 @@
     (return-star-to-bank-if-empty ship-moved source-world-key)))
 
 (defn create-world [star]
-  (reduce #(assoc %1 %2 []) {:stars [star]} players))
+  (into {:stars [star]} (for [player players] [player []])))
 
 (defn perform-discover
   "A player's ship moves to a newly discovered world. Return a star to the bank if necessary."
@@ -110,6 +110,13 @@
         (update-in [:worlds dest-world-key (:turn position)] conj ship)
         (update-in [:next-world] inc)
         (return-star-to-bank-if-empty source-world-key))))
+
+(defn perform-sacrifice
+  "Return a ship to the bank."
+  [position ship world-key]
+  (-> position
+      (update-in [:worlds world-key (:turn position)] remove-one-ship ship)
+      (update-in [:bank ship] inc)))
 
 (defn -main
   "I don't do a whole lot ... yet."
