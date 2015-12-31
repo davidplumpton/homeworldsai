@@ -95,4 +95,8 @@
     (testing "sacrificing a ship returns it to the bank"
       (let [after-move (perform-sacrifice sample-position :g1 2)]
         (is (= 1 (get-in after-move [:bank :g1])))
-        (is (= '[:y1] (get-in after-move [:worlds 2 :player1])))))))
+        (is (= '[:y1] (get-in after-move [:worlds 2 :player1])))))
+    (testing "sacrificing the last ship in a star also returns the star to the bank"
+      (let [after-move (perform-sacrifice (assoc sample-position :turn :player2) :y1 3)]
+        (is (= 1 (get-in after-move [:bank :g1])))
+        (is (= 2 (get-in after-move [:bank :y1])))))))

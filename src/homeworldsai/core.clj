@@ -84,7 +84,7 @@
         (update-in [:bank star] inc))))
 
 (defn return-star-to-bank-if-empty [position world-key]
-  (if (every? empty? (concat (vals (select-keys players (get-in position [:worlds world-key])))))
+  (if (every? empty? (concat (vals (select-keys (get-in position [:worlds world-key]) players))))
     (return-star-to-bank position world-key)
     position))
 
@@ -116,7 +116,8 @@
   [position ship world-key]
   (-> position
       (update-in [:worlds world-key (:turn position)] remove-one-ship ship)
-      (update-in [:bank ship] inc)))
+      (update-in [:bank ship] inc)
+      (return-star-to-bank-if-empty world-key)))
 
 (defn -main
   "I don't do a whole lot ... yet."
