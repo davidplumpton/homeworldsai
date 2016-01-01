@@ -94,9 +94,11 @@
         (update-in [:bank star] inc))))
 
 (defn return-star-to-bank-if-empty [position world-key]
-  (if (every? empty? (concat (vals (select-keys (get-in position [:worlds world-key]) players))))
-    (return-star-to-bank position world-key)
-    position))
+  (if (nil? (get-in position [:worlds world-key]))
+    position
+    (if (every? empty? (concat (vals (select-keys (get-in position [:worlds world-key]) players))))
+      (return-star-to-bank position world-key)
+      position)))
 
 (defn perform-move
   "A player's ship moves from one world to another. Return a star to the bank if necessary."
