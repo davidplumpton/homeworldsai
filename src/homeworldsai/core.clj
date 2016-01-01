@@ -14,7 +14,7 @@
    :bank initial-bank})
 
 (defn get-pyramids-in-world [world]
-  (reduce concat (map world (conj players :stars))))
+  (mapcat world (conj players :stars)))
 
 (defn rebuild-bank [position]
   (let [used-pyramids (mapcat get-pyramids-in-world (vals (:worlds position)))]

@@ -113,7 +113,11 @@
         (is (= 1 (get-in after-move [:bank :y1])))
         (is (= 2 (get-in after-move [:bank :y2])))
         (is (= 2 (get-in after-move [:bank :y3])))))
-    (testing "Destroy four ships with another ship left behind")
+    (testing "Destroy four ships with another ship left behind"
+      (let [one-extra-ship (perform-move too-many-ships :g1 2 4)
+            after-move (perform-catastrophe one-extra-ship "y" 4)]
+        (is (= [:g1] (get-in after-move [:worlds 4 :player1])))
+        (is (= 2 (get-in after-move [:bank :y3])))))
     (testing "Destroy four ships from two players")
     (testing "Destroy four ships and return star to bank")
     (testing "Destroy three ships and a star")
