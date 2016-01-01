@@ -142,6 +142,7 @@
   [position colour world-key]
   (-> position
     (remove-ships-and-maybe-a-star colour world-key)
+    (return-star-to-bank-if-empty world-key)
     (rebuild-bank-in-position)))
 
 (defn -main

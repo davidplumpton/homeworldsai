@@ -118,8 +118,26 @@
             after-move (perform-catastrophe one-extra-ship "y" 4)]
         (is (= [:g1] (get-in after-move [:worlds 4 :player1])))
         (is (= 2 (get-in after-move [:bank :y3])))))
-    (testing "Destroy four ships from two players")
-    (testing "Destroy four ships and return star to bank")
+    (testing "Destroy four ships from two players"
+      (let [two-ships-each (-> sample-position
+                               (perform-build :y1 4)
+                               (assoc :turn :player2)
+                               (perform-move :y3 2 4)
+                               (perform-build :y3 4)
+                               (assoc :turn :player1))
+            after-move (perform-catastrophe two-ships-each "y" 4)]
+        (is (= [:b3] (get-in after-move [:worlds 4 :player2])))))
+    (testing "Destroy four ships and return star to bank"
+      (let [two-ships-each (-> sample-position
+                               (perform-build :y1 4)
+                               (assoc :turn :player2)
+                               (perform-move :y3 2 4)
+                               (perform-build :y3 4)
+                               (perform-move :b3 4 2)
+                               (assoc :turn :player1))
+            after-move (perform-catastrophe two-ships-each "y" 4)]
+        (is (nil? (get-in after-move [:worlds 4])))
+        (is (= 3 (get-in after-move [:bank :r1])))))
     (testing "Destroy three ships and a star")
     (testing "Destroy three ships and a homeworld star")))
 
