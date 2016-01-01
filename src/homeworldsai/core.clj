@@ -13,7 +13,6 @@
   {:turn :player1, :worlds {}
    :bank initial-bank})
 
-;; --------- Testing support code
 (defn get-pyramids-in-world [world]
   (reduce concat (map world (conj players :stars))))
 
@@ -24,6 +23,7 @@
 (defn rebuild-bank-in-position [position]
   (assoc position :bank (rebuild-bank position)))
 
+;; --------- Testing support code
 (defn create-sample-position
   "Something to work with."
   []
@@ -33,14 +33,19 @@
                     2 {:stars [:b3] :player1 [:y1 :g1] :name "moon"},
                     3 {:stars [:g1] :player2 [:y1] :name "farside"},
                     4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat"}}
-                    :next-world 5)]
-    (assoc pos :bank (rebuild-bank pos))))
+                  :next-world 5)]
+    (rebuild-bank-in-position pos)))
 
 ;; -----------------------
 
 ;; Needs to be extended to multiple players
 (defn other-player [player]
   (if (= :player1 player) :player2 :player1))
+
+(defn get-colour
+  "Return the colour as a string."
+  [pyramid]
+  (.substring (str pyramid) 1 2))
 
 (defn find-smallest-piece
   "Find the smallest piece available in the bank or nil if none."
@@ -62,6 +67,11 @@
 (defn remove-one-ship [col ship]
   (let [[before after] (split-with #(not= % ship) col)]
     (concat before (rest after))))
+
+(defn remove-ships-of-colour
+  "Remove all ships of this colour from the collection."
+  [col colour]
+  (filter #(not= colour (get-colour %)) col))
 
 (defn replace-ship [col old-ship new-ship]
   (conj (remove-one-ship col old-ship) new-ship))
@@ -118,6 +128,21 @@
       (update-in [:worlds world-key (:turn position)] remove-one-ship ship)
       (update-in [:bank ship] inc)
       (return-star-to-bank-if-empty world-key)))
+
+(defn remove-ships-and-maybe-a-star
+  [position colour world-key]
+  (if (= colour (get-colour (first (get-in position [:worlds world-key :stars]))))
+    (return-star-to-bank position world-key)
+    (reduce
+      (fn removing-ships [position player] (update-in position [:worlds world-key player] remove-ships-of-colour colour))
+      position players)))
+
+(defn perform-catastrophe
+  "Four or more things of one colour in a system, so they get removed."
+  [position colour world-key]
+  (-> position
+    (remove-ships-and-maybe-a-star colour world-key)
+    (rebuild-bank-in-position)))
 
 (defn -main
   "I don't do a whole lot ... yet."

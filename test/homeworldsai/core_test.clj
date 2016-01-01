@@ -100,3 +100,22 @@
       (let [after-move (perform-sacrifice (assoc sample-position :turn :player2) :y1 3)]
         (is (= 1 (get-in after-move [:bank :g1])))
         (is (= 2 (get-in after-move [:bank :y1])))))))
+
+(deftest catastrophe-logic
+  (let [sample-position (create-sample-position)
+        too-many-ships (-> sample-position
+                           (perform-build :y1 4)
+                           (perform-build :y1 4)
+                           (perform-build :y1 4))]
+    (testing "Destroy four ships of one player"
+      (let [after-move (perform-catastrophe too-many-ships "y" 4)]
+        (is (empty? (get-in after-move [:worlds 4 :player1])))
+        (is (= 1 (get-in after-move [:bank :y1])))
+        (is (= 2 (get-in after-move [:bank :y2])))
+        (is (= 2 (get-in after-move [:bank :y3])))))
+    (testing "Destroy four ships with another ship left behind")
+    (testing "Destroy four ships from two players")
+    (testing "Destroy four ships and return star to bank")
+    (testing "Destroy three ships and a star")
+    (testing "Destroy three ships and a homeworld star")))
+
