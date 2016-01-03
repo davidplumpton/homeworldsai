@@ -87,11 +87,26 @@
   (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-ship victim-ship)]
     (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
 
-(defn return-star-to-bank [position world-key]
-  (let [star (first (get-in position [:worlds world-key :stars]))]
-    (-> position
-        (update-in [:worlds] dissoc world-key)
-        (update-in [:bank star] inc))))
+(defn get-star-matching-colour
+  "Return a star matching the colour, or nil."
+  [stars colour]
+  (some #(when (= colour (get-colour %)) %) stars))
+
+(defn return-star-to-bank
+  "Return a star to the bank, removing the world if it is the last star.
+  Pass a colour if a star is catastrophe needs to choose from possibly
+  two homeworld stars."
+  [position world-key & {:keys [colour]}]
+  (let [stars (get-in position [:worlds world-key :stars])]
+    (if (= 2 (count stars))
+      (let [star (get-star-matching-colour stars colour)]
+        (-> position
+            (update-in [:worlds world-key :stars] (fn [stars] (remove #(= colour (get-colour %)) stars)))
+            (update-in [:bank star] inc)))
+      (let [star (first stars)]
+        (-> position
+            (update-in [:worlds] dissoc world-key)
+            (update-in [:bank star] inc))))))
 
 (defn return-star-to-bank-if-empty [position world-key]
   (if (nil? (get-in position [:worlds world-key]))
@@ -133,8 +148,8 @@
 
 (defn remove-ships-and-maybe-a-star
   [position colour world-key]
-  (if (= colour (get-colour (first (get-in position [:worlds world-key :stars]))))
-    (return-star-to-bank position world-key)
+  (if (get-star-matching-colour (get-in position [:worlds world-key :stars]) colour)
+    (return-star-to-bank position world-key :colour colour)
     (reduce
       (fn removing-ships [position player] (update-in position [:worlds world-key player] remove-ships-of-colour colour))
       position players)))

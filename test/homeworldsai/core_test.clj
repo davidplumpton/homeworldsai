@@ -136,8 +136,8 @@
                                (perform-move :b3 4 2)
                                (assoc :turn :player1))
             after-move (perform-catastrophe two-ships-each "y" 4)]
-        (is (nil? (get-in after-move [:worlds 4])))
-        (is (= 3 (get-in after-move [:bank :r1])))))
+        (is (nil? (get-in after-move [:worlds 4])) "World removed")
+        (is (= 3 (get-in after-move [:bank :r1])))) "Star returned to bank")
     (testing "Destroy three ships and a star"
       (let [three-ships-and-star (-> sample-position
                                      (assoc :turn :player2)
@@ -145,7 +145,12 @@
                                      (perform-build :r3 4)
                                      (perform-build :r3 4))
             after-move (perform-catastrophe three-ships-and-star "r" 4)]
-        (is (nil? (get-in after-move [:worlds 4])))
-        (is (= 3 (get-in after-move [:bank :r1])))))
-    (testing "Destroy three ships and a homeworld star")))
-
+        (is (nil? (get-in after-move [:worlds 4])) "World removed")
+        (is (= 3 (get-in after-move [:bank :r1])))) "Star returned to bank")
+    (testing "Destroy three ships and a homeworld star"
+      (let [homeworld-and-three-ships (-> sample-position
+                                          (perform-trade :g1 :y1 0)
+                                          (perform-build :y1 0)
+                                          (perform-build :y1 0))
+            after-move (perform-catastrophe homeworld-and-three-ships "y" 0)]
+        (is (= [:b1] (get-in after-move [:worlds 0 :stars])))))))
