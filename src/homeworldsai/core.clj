@@ -203,6 +203,7 @@
     (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))
 
 (defn find-all-attack-moves
+  "For every world with red available make an attack move for each enemy ship not larger than the largest ship."
   [position player]
   (for [world (vals (:worlds position))
         :when (colour-available-in-world? world "r" player) 
@@ -211,13 +212,46 @@
         :when (>= 0 (.compareTo biggest-ship-size (get-size enemy-ship)))]
     (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship)))
 
+(defn can-navigate-between-worlds?
+  "Ships can navigate between worlds if there are no stars of the same size."
+  [world1 world2]
+  (let [world1-sizes (map get-size (:stars world1))
+        world2-sizes (map get-size (:stars world2))
+        all-sizes (concat world1-sizes world2-sizes)]
+    (= (count all-sizes) (count (distinct all-sizes)))))
+
+(defn can-discover?
+  "Can discover a new world if the size is different to any of the stars in the source world."
+  [world1 size]
+  (not (some #(= size (get-size %)) (:stars world1))))
+
+(defn find-all-move-moves
+  [position player]
+  (for [world (vals (:worlds position))
+        :when (colour-available-in-world? world "y" player)
+        ship (distinct (player world))
+        target-world (vals (:worlds position))
+        :when (can-navigate-between-worlds? target-world world)]
+    (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world))))
+
+(defn find-all-discover-moves
+  [position player]
+  (for [world (vals (:worlds position))
+        :when (colour-available-in-world? world "y" player)
+        ship (distinct (player world))
+        target-world (keys (:bank position))
+        :when (can-discover? world (get-size target-world))]
+    (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world)))
+
 (defn find-all-possible-moves
   [position]
   (let [player (:turn position)]
     (concat
       (find-all-create-moves position player)
       (find-all-trade-moves position player)
-      (find-all-attack-moves position player))))
+      (find-all-attack-moves position player)
+      (find-all-move-moves position player)
+      (find-all-discover-moves position player))))
 
 (defn -main
   "I don't do a whole lot ... yet."
