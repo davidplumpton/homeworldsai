@@ -186,27 +186,38 @@
 (defn find-all-create-moves
   "For every world with green available make a create move for each player ship colour."
   [position player]
-  (flatten
-    (for [world (vals (:worlds position)) :when (colour-available-in-world? world "g" player)] 
-      (for [colour (distinct (map get-colour (player world)))]
-        (create-move :move-type :create :source-world (:key world) :colour colour)))))
+  (for [world (vals (:worlds position))
+        :when (colour-available-in-world? world "g" player) 
+        colour (distinct (map get-colour (player world)))]
+    (create-move :move-type :create :source-world (:key world) :colour colour)))
 
 (defn find-all-trade-moves
   "For every world with blue available make a trade move for each player ship colour and size."
   [position player]
-  (let [bank (:bank position)]
-    (flatten
-      (for [world (vals (:worlds position)) :when (colour-available-in-world? world "b" player)] 
-        (for [ship (distinct (player world))]
-          (for [target-colour all-colours
-                :when (not= target-colour (get-colour ship))
-                :let [target-ship (keyword (str target-colour (get-size ship)))]]
-            (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))))))
+  (for [world (vals (:worlds position))
+        :when (colour-available-in-world? world "b" player)
+        ship (distinct (player world))
+        target-colour all-colours
+        :when (not= target-colour (get-colour ship))
+        :let [target-ship (keyword (str target-colour (get-size ship)))]]
+    (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))
+
+(defn find-all-attack-moves
+  [position player]
+  (for [world (vals (:worlds position))
+        :when (colour-available-in-world? world "r" player) 
+        :let [biggest-ship-size (reduce max (map get-size (player world)))]
+        enemy-ship (get world (other-player player))
+        :when (>= 0 (.compareTo biggest-ship-size (get-size enemy-ship)))]
+    (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship)))
 
 (defn find-all-possible-moves
   [position]
   (let [player (:turn position)]
-    (concat (find-all-create-moves position player) (find-all-trade-moves position player))))
+    (concat
+      (find-all-create-moves position player)
+      (find-all-trade-moves position player)
+      (find-all-attack-moves position player))))
 
 (defn -main
   "I don't do a whole lot ... yet."
