@@ -13,7 +13,7 @@
 ;; Return a representation of the starting position.
 (defonce initial-position
   {:turn :player1, :worlds {}
-   :bank initial-bank})
+   :next-world 0, :bank initial-bank})
 
 (defn get-pyramids-in-world [world]
   (mapcat world (conj players :stars)))
@@ -129,15 +129,18 @@
         ship-moved (update-in removed [:worlds dest-world-key (:turn position)] conj ship)]
     (return-star-to-bank-if-empty ship-moved source-world-key)))
 
-(defn create-world [star]
-  (into {:stars [star]} (for [player players] [player []])))
+(defn create-world [stars key]
+  "Define the structure of a world."
+  (into
+    {:stars stars :key key}
+    (for [player players] [player []])))
 
 (defn perform-discover
   "A player's ship moves to a newly discovered world. Return a star to the bank if necessary."
   [position ship source-world-key star]
   (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)
-        new-world (create-world star)
-        dest-world-key (:next-world position)]
+        dest-world-key (:next-world position)
+        new-world (create-world [star] dest-world-key)]
     (-> removed
         (assoc-in [:worlds dest-world-key] new-world)
         (update-in [:bank star] dec)
@@ -194,19 +197,22 @@
 (defn find-all-trade-moves
   "For every world with blue available make a trade move for each player ship colour and size."
   [position player]
-  (for [world (vals (:worlds position))
-        :when (colour-available-in-world? world "b" player)
-        ship (distinct (player world))
-        target-colour all-colours
-        :when (not= target-colour (get-colour ship))
-        :let [target-ship (keyword (str target-colour (get-size ship)))]]
-    (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))
+  (let [bank (:bank position)]
+    (for [world (vals (:worlds position))
+          :when (colour-available-in-world? world "b" player)
+          ship (distinct (player world))
+          target-colour all-colours
+          :when (not= target-colour (get-colour ship))
+          :let [target-ship (keyword (str target-colour (get-size ship)))]
+          :when (pos? (target-ship bank))]
+      (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship))))
 
 (defn find-all-attack-moves
   "For every world with red available make an attack move for each enemy ship not larger than the largest ship."
   [position player]
   (for [world (vals (:worlds position))
         :when (colour-available-in-world? world "r" player) 
+        :when (pos? (count (player world)))
         :let [biggest-ship-size (reduce max (map get-size (player world)))]
         enemy-ship (get world (other-player player))
         :when (>= 0 (.compareTo biggest-ship-size (get-size enemy-ship)))]
@@ -226,6 +232,7 @@
   (not (some #(= size (get-size %)) (:stars world1))))
 
 (defn find-all-move-moves
+  "For every world with yellow available for each distinct ship for each world that the ship can navigate to."
   [position player]
   (for [world (vals (:worlds position))
         :when (colour-available-in-world? world "y" player)
@@ -235,13 +242,16 @@
     (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world))))
 
 (defn find-all-discover-moves
+  "For every world with yellow available for each distinct ship for each distinct pyramid available in the bank that it can navigate to."
   [position player]
-  (for [world (vals (:worlds position))
-        :when (colour-available-in-world? world "y" player)
-        ship (distinct (player world))
-        target-world (keys (:bank position))
-        :when (can-discover? world (get-size target-world))]
-    (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world)))
+  (let [bank (:bank position)]
+    (for [world (vals (:worlds position))
+          :when (colour-available-in-world? world "y" player)
+          ship (distinct (player world))
+          target-world-star (keys (:bank position))
+          :when (can-discover? world (get-size target-world-star))
+          :when (pos? (target-world-star bank))]
+      (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star))))
 
 (defn find-all-possible-moves
   [position]
@@ -252,6 +262,16 @@
       (find-all-attack-moves position player)
       (find-all-move-moves position player)
       (find-all-discover-moves position player))))
+
+(defn perform-homeworld
+  "Initial move to establish a homeship with two stars and ship."
+  [position star1 star2 ship]
+  (let [new-world-key (:next-world position)]
+    (-> position
+        (assoc-in [:worlds new-world-key] (create-world [star1 star2] new-world-key))
+        (update-in [:worlds new-world-key (:turn position)] conj ship)
+        (update-in [:next-world] inc)
+        rebuild-bank-in-position)))
 
 (defn -main
   "I don't do a whole lot ... yet."
