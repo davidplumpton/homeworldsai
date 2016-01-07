@@ -1,7 +1,9 @@
 (ns homeworldsai.core
   (:gen-class))
 
-(defonce pyramids (for [colour ["r" "g" "b" "y"] size ["1" "2" "3"]] (keyword (.concat colour size))))
+(defonce all-colours ["r" "g" "b" "y"])
+
+(defonce pyramids (for [colour all-colours size ["1" "2" "3"]] (keyword (.concat colour size))))
 
 (defonce players [:player1 :player2])
 
@@ -28,11 +30,11 @@
   "Something to work with."
   []
   (let [pos (assoc initial-position :worlds
-                   {0 {:stars [:b1 :y2] :player1 [:g3 :g1] :name "alice"},
-                    1 {:stars [:b2 :g3] :player2 [:y3 :b2] :name "bob"},
-                    2 {:stars [:b3] :player1 [:y1 :g1] :name "moon"},
-                    3 {:stars [:g1] :player2 [:y1] :name "farside"},
-                    4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat"}}
+                   {0 {:stars [:b1 :y2] :player1 [:g3 :g1] :name "alice" :key 0},
+                    1 {:stars [:b2 :g3] :player2 [:y3 :b2] :name "bob" :key 1},
+                    2 {:stars [:b3] :player1 [:y1 :g1] :name "moon" :key 2},
+                    3 {:stars [:g1] :player2 [:y1] :name "farside" :key 3},
+                    4 {:stars [:r1] :player1 [:y2] :player2 [:b3] :name "combat" :key 4}}
                   :next-world 5)]
     (rebuild-bank-in-position pos)))
 
@@ -46,6 +48,11 @@
   "Return the colour as a string."
   [pyramid]
   (.substring (str pyramid) 1 2))
+
+(defn get-size
+  "Return the size of a pyramid as a string."
+  [pyramid]
+  (.substring (str pyramid) 2 3))
 
 (defn find-smallest-piece
   "Find the smallest piece available in the bank or nil if none."
@@ -87,10 +94,10 @@
   (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-ship victim-ship)]
     (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
 
-(defn get-star-matching-colour
-  "Return a star matching the colour, or nil."
-  [stars colour]
-  (some #(when (= colour (get-colour %)) %) stars))
+(defn get-pyramid-matching-colour
+  "Return a pyramid matching the colour, or nil."
+  [pyramids colour]
+  (some #(when (= colour (get-colour %)) %) pyramids))
 
 (defn return-star-to-bank
   "Return a star to the bank, removing the world if it is the last star.
@@ -99,7 +106,7 @@
   [position world-key & {:keys [colour]}]
   (let [stars (get-in position [:worlds world-key :stars])]
     (if (= 2 (count stars))
-      (let [star (get-star-matching-colour stars colour)]
+      (let [star (get-pyramid-matching-colour stars colour)]
         (-> position
             (update-in [:worlds world-key :stars] (fn [stars] (remove #(= colour (get-colour %)) stars)))
             (update-in [:bank star] inc)))
@@ -148,7 +155,7 @@
 
 (defn remove-ships-and-maybe-a-star
   [position colour world-key]
-  (if (get-star-matching-colour (get-in position [:worlds world-key :stars]) colour)
+  (if (get-pyramid-matching-colour (get-in position [:worlds world-key :stars]) colour)
     (return-star-to-bank position world-key :colour colour)
     (reduce
       (fn removing-ships [position player] (update-in position [:worlds world-key player] remove-ships-of-colour colour))
@@ -161,6 +168,45 @@
     (remove-ships-and-maybe-a-star colour world-key)
     (return-star-to-bank-if-empty world-key)
     (rebuild-bank-in-position)))
+
+(defn colour-available-in-world?
+  "Is there a star or one of the players ships of this colour in the world?"
+  [world colour player]
+  (or
+    (get-pyramid-matching-colour (:stars world) colour)
+    (get-pyramid-matching-colour (player world) colour)))
+
+(defn create-move
+  "Represent a possible move with its parameters."
+  [& {:keys [:move-type :source-world :colour :ship :dest-world :target-ship]}]
+  (conj
+    {:move-type move-type :source-world source-world :ship ship
+     :colour colour :dest-world dest-world :target-ship target-ship}))
+
+(defn find-all-create-moves
+  "For every world with green available make a create move for each player ship colour."
+  [position player]
+  (flatten
+    (for [world (vals (:worlds position)) :when (colour-available-in-world? world "g" player)] 
+      (for [colour (distinct (map get-colour (player world)))]
+        (create-move :move-type :create :source-world (:key world) :colour colour)))))
+
+(defn find-all-trade-moves
+  "For every world with blue available make a trade move for each player ship colour and size."
+  [position player]
+  (let [bank (:bank position)]
+    (flatten
+      (for [world (vals (:worlds position)) :when (colour-available-in-world? world "b" player)] 
+        (for [ship (distinct (player world))]
+          (for [target-colour all-colours
+                :when (not= target-colour (get-colour ship))
+                :let [target-ship (keyword (str target-colour (get-size ship)))]]
+            (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))))))
+
+(defn find-all-possible-moves
+  [position]
+  (let [player (:turn position)]
+    (concat (find-all-create-moves position player) (find-all-trade-moves position player))))
 
 (defn -main
   "I don't do a whole lot ... yet."
