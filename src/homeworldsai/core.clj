@@ -71,27 +71,29 @@
         (update-in [:worlds world-key player] conj smallest-piece)
         (update-in [:bank smallest-piece] dec))))
 
-(defn remove-one-ship [col ship]
-  (let [[before after] (split-with #(not= % ship) col)]
+(defn remove-one-pyramid
+  "There doesn't seem to be a standard way of just removing a single item from a collection."
+  [col pyramid]
+  (let [[before after] (split-with #(not= % pyramid) col)]
     (concat before (rest after))))
 
-(defn remove-ships-of-colour
-  "Remove all ships of this colour from the collection."
+(defn remove-pyramids-of-colour
+  "Remove all pyramids of this colour from the collection."
   [col colour]
   (filter #(not= colour (get-colour %)) col))
 
-(defn replace-ship [col old-ship new-ship]
-  (conj (remove-one-ship col old-ship) new-ship))
+(defn replace-pyramid [col old-pyramid new-pyramid]
+  (conj (remove-one-pyramid col old-pyramid) new-pyramid))
 
 (defn perform-trade
   "Trade an existing ship with another colour if available."
   [position old-ship new-ship world-key]
-  (update-in position [:worlds world-key (:turn position)] replace-ship old-ship new-ship))
+  (update-in position [:worlds world-key (:turn position)] replace-pyramid old-ship new-ship))
 
 (defn perform-attack
   "A player's ship is captured by the attacker."
   [position attacking-ship victim-ship world-key]
-  (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-ship victim-ship)]
+  (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-pyramid victim-ship)]
     (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
 
 (defn get-pyramid-matching-colour
@@ -125,7 +127,7 @@
 (defn perform-move
   "A player's ship moves from one world to another. Return a star to the bank if necessary."
   [position ship source-world-key dest-world-key]
-  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)
+  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
         ship-moved (update-in removed [:worlds dest-world-key (:turn position)] conj ship)]
     (return-star-to-bank-if-empty ship-moved source-world-key)))
 
@@ -138,7 +140,7 @@
 (defn perform-discover
   "A player's ship moves to a newly discovered world. Return a star to the bank if necessary."
   [position ship source-world-key star]
-  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-ship ship)
+  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
         dest-world-key (:next-world position)
         new-world (create-world [star] dest-world-key)]
     (-> removed
@@ -152,7 +154,7 @@
   "Return a ship to the bank."
   [position ship world-key]
   (-> position
-      (update-in [:worlds world-key (:turn position)] remove-one-ship ship)
+      (update-in [:worlds world-key (:turn position)] remove-one-pyramid ship)
       (update-in [:bank ship] inc)
       (return-star-to-bank-if-empty world-key)))
 
@@ -161,7 +163,7 @@
   (if (get-pyramid-matching-colour (get-in position [:worlds world-key :stars]) colour)
     (return-star-to-bank position world-key :colour colour)
     (reduce
-      (fn removing-ships [position player] (update-in position [:worlds world-key player] remove-ships-of-colour colour))
+      (fn removing-ships [position player] (update-in position [:worlds world-key player] remove-pyramids-of-colour colour))
       position players)))
 
 (defn perform-catastrophe
