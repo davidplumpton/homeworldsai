@@ -15,14 +15,20 @@
   {:turn :player1, :worlds {}
    :next-world 0, :bank initial-bank})
 
-(defn get-pyramids-in-world [world]
+(defn get-pyramids-in-world
+  "Get all the pyramids in a world, i.e. all players and the stars."
+  [world]
   (mapcat world (conj players :stars)))
 
-(defn rebuild-bank [position]
+(defn rebuild-bank
+  "Convenience function to reconstruct the bank based on the current position."
+  [position]
   (let [used-pyramids (mapcat get-pyramids-in-world (vals (:worlds position)))]
     (reduce (fn [m k] (update m k dec)) initial-bank used-pyramids)))
 
-(defn rebuild-bank-in-position [position]
+(defn rebuild-bank-in-position
+  "Update the position with the rebuilt bank."
+  [position]
   (assoc position :bank (rebuild-bank position)))
 
 ;; --------- Testing support code
@@ -53,6 +59,10 @@
   "Return the size of a pyramid as a string."
   [pyramid]
   (.substring (str pyramid) 2 3))
+
+(defn get-size-int
+  [pyramid]
+  (Integer/parseInt (get-size pyramid)))
 
 (defn find-smallest-piece
   "Find the smallest piece available in the bank or nil if none."
@@ -117,7 +127,9 @@
             (update-in [:worlds] dissoc world-key)
             (update-in [:bank star] inc))))))
 
-(defn return-star-to-bank-if-empty [position world-key]
+(defn return-star-to-bank-if-empty
+  "If there are no ships in this world then the star should be returned to the bank."
+  [position world-key]
   (if (nil? (get-in position [:worlds world-key]))
     position
     (if (every? empty? (concat (vals (select-keys (get-in position [:worlds world-key]) players))))
@@ -174,6 +186,32 @@
     (return-star-to-bank-if-empty world-key)
     (rebuild-bank-in-position)))
 
+(defmulti play-move (fn [_ move] (:move-type move)))
+
+(defmethod play-move :build
+  [position move]
+  (perform-build position (:ship move) (:source-world move)))
+
+(defmethod play-move :trade
+  [position move]
+  (perform-trade position (:ship move) (:target-ship move) (:source-world move)))
+
+(defmethod play-move :attack
+  [position move]
+  (perform-attack position (:ship move) (:target-ship move) (:source-world move))) 
+
+(defmethod play-move :move
+  [position move]
+  (perform-move position (:ship move) (:source-world move) (:dest-world move)))
+
+(defmethod play-move :discover
+  [position move]
+  (perform-discover position (:ship move) (:source-world move) (:dest-world move)))
+
+(defmethod play-move :sacrifice
+  [position move]
+  (perform-sacrifice position (:ship move) (:source-world move)))
+
 (defn colour-available-in-world?
   "Is there a star or one of the players ships of this colour in the world?"
   [world colour player]
@@ -188,13 +226,15 @@
     {:move-type move-type :source-world source-world :ship ship
      :colour colour :dest-world dest-world :target-ship target-ship}))
 
-(defn find-all-create-moves
+(defn find-all-build-moves
   "For every world with green available make a create move for each player ship colour."
   [position player]
   (for [world (vals (:worlds position))
         :when (colour-available-in-world? world "g" player) 
-        colour (distinct (map get-colour (player world)))]
-    (create-move :move-type :create :source-world (:key world) :colour colour)))
+        :let [ships (player world)]
+        colour (distinct (map get-colour ships))
+        :let [ship (some #(when (= colour (get-colour %)) %) ships)]]
+    (create-move :move-type :build :source-world (:key world) :colour colour :ship ship)))
 
 (defn find-all-trade-moves
   "For every world with blue available make a trade move for each player ship colour and size."
@@ -215,9 +255,9 @@
   (for [world (vals (:worlds position))
         :when (colour-available-in-world? world "r" player) 
         :when (pos? (count (player world)))
-        :let [biggest-ship-size (reduce max (map get-size (player world)))]
-        enemy-ship (get world (other-player player))
-        :when (>= 0 (.compareTo biggest-ship-size (get-size enemy-ship)))]
+        :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+        enemy-ship (distinct (get world (other-player player)))
+        :when (>= biggest-ship-size (get-size-int enemy-ship))]
     (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship)))
 
 (defn can-navigate-between-worlds?
@@ -233,6 +273,16 @@
   [world1 size]
   (not (some #(= size (get-size %)) (:stars world1))))
 
+(defn abandon-homeworld?
+  "True if the last ship is being moved out of the homeworld."
+  [postion player source-world-key]
+  (let [ships (get-in postion [:worlds source-world-key player])]
+    (and
+      (= 1 (count ships))
+      (or
+        (and (= player :player1) (= source-world-key 0))
+        (and (= player :player2) (= source-world-key 1))))))
+
 (defn find-all-move-moves
   "For every world with yellow available for each distinct ship for each world that the ship can navigate to."
   [position player]
@@ -240,7 +290,8 @@
         :when (colour-available-in-world? world "y" player)
         ship (distinct (player world))
         target-world (vals (:worlds position))
-        :when (can-navigate-between-worlds? target-world world)]
+        :when (can-navigate-between-worlds? target-world world)
+        :when (not (abandon-homeworld? position player (:key world)))]
     (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world))))
 
 (defn find-all-discover-moves
@@ -252,18 +303,168 @@
           ship (distinct (player world))
           target-world-star (keys (:bank position))
           :when (can-discover? world (get-size target-world-star))
-          :when (pos? (target-world-star bank))]
+          :when (pos? (target-world-star bank))
+          :when (not (abandon-homeworld? position player (:key world)))]
       (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star))))
 
 (defn find-all-possible-moves
   [position]
   (let [player (:turn position)]
     (concat
-      (find-all-create-moves position player)
+      (find-all-build-moves position player)
       (find-all-trade-moves position player)
       (find-all-attack-moves position player)
       (find-all-move-moves position player)
       (find-all-discover-moves position player))))
+
+(defn find-all-build-moves-after-position
+  "From a list of positions and moves find more build moves.
+  Return them as a longer list of positions and list of moves."
+  [list-of-positions-and-moves]
+  (for [pos-and-moves list-of-positions-and-moves
+        :let [position (first pos-and-moves)
+              moves (second pos-and-moves)]
+        world (vals (:worlds position))
+        :let [player (:turn position)
+              ships (player world)]
+        colour (distinct (map get-colour ships))
+        :let [ship (some #(when (= colour (get-colour %)) %) ships)]
+        :when (find-smallest-piece position ship)
+        :let [move (create-move :move-type :build :ship ship :source-world (:key world) :colour colour)]]
+    [(play-move position move) (conj moves move)]))
+
+(defn find-all-build-sacrifice-moves
+  "For every world, for every unique player green ship perform a sacrifice and then find all combinations of build moves
+  after that point."
+  [position player]
+  (for [world (vals (:worlds position))
+        ship (distinct (player world))
+        :when (= "g" (get-colour ship))
+        :let [ship-size (get-size-int ship)
+              sacrifice-move (create-move :move-type :sacrifice :ship ship :source-world (:key world))
+              position-after-move (play-move position sacrifice-move)
+              move-combos (as-> [[position-after-move []]] $
+                            (iterate find-all-build-moves-after-position $)
+                            (nth $ ship-size)
+                            (map second $))]
+        child-move-combo move-combos]
+    (assoc sacrifice-move :child-moves child-move-combo)))
+
+(defn find-all-trade-moves-after-position
+  "From a list of positions and moves find more trade moves.
+  Return them as a longer list of positions and list of moves."
+  [list-of-positions-and-moves]
+  (for [pos-and-moves list-of-positions-and-moves
+        :let [position (first pos-and-moves)
+              moves (second pos-and-moves)
+              player (:turn position)
+              bank (:bank position)]
+        world (vals (:worlds position))
+        ship (distinct (player world))
+        target-colour all-colours
+        :when (not= target-colour (get-colour ship))
+        :let [target-ship (keyword (str target-colour (get-size ship)))]
+        :when (pos? (target-ship bank))
+        :let [move (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)]]
+    [(play-move position move) (conj moves move)]))
+
+(defn find-all-trade-sacrifice-moves
+  "For every world, for every unique player green ship perform a sacrifice and then find all combinations of trade moves
+  after that point."
+  [position player]
+  (for [world (vals (:worlds position))
+        ship (distinct (player world))
+        :when (= "b" (get-colour ship))
+        :let [ship-size (get-size-int ship)
+              sacrifice-move (create-move :move-type :sacrifice :ship ship :source-world (:key world))
+              position-after-move (play-move position sacrifice-move)
+              move-combos (as-> [[position-after-move []]] $
+                            (iterate find-all-trade-moves-after-position $)
+                            (nth $ ship-size)
+                            (map second $))]
+        child-move-combo move-combos]
+    (assoc sacrifice-move :child-moves child-move-combo)))
+
+(defn find-all-attack-moves-after-position
+  "From a list of positions and moves find more attack moves.
+  Return them as a longer list of positions and list of moves."
+  [list-of-positions-and-moves]
+  (for [pos-and-moves list-of-positions-and-moves
+        :let [position (first pos-and-moves)
+              moves (second pos-and-moves)
+              player (:turn position)
+              bank (:bank position)]
+        world (vals (:worlds position))
+        :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+        enemy-ship (distinct (get world (other-player player)))
+        :when (>= biggest-ship-size (get-size-int enemy-ship))
+        :let [move (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship)]]
+    [(play-move position move) (conj moves move)]))
+
+(defn find-all-attack-sacrifice-moves
+  "For every world, for every unique player green ship perform a sacrifice and then find all combinations of attack moves
+  after that point."
+  [position player]
+  (for [world (vals (:worlds position))
+        ship (distinct (player world))
+        :when (= "r" (get-colour ship))
+        :let [ship-size (get-size-int ship)
+              sacrifice-move (create-move :move-type :sacrifice :ship ship :source-world (:key world))
+              position-after-move (play-move position sacrifice-move)
+              move-combos (as-> [[position-after-move []]] $
+                            (iterate find-all-attack-moves-after-position $)
+                            (nth $ ship-size)
+                            (map second $))]
+        child-move-combo move-combos]
+    (assoc sacrifice-move :child-moves child-move-combo)))
+
+(defn find-all-move-moves-after-position
+  "From a list of positions and moves find more move and
+  discover moves. Return them as a longer list of positions and list of moves."
+  [list-of-positions-and-moves]
+  (concat
+    (for [pos-and-moves list-of-positions-and-moves
+          :let [position (first pos-and-moves)
+                moves (second pos-and-moves)
+                player (:turn position)
+                bank (:bank position)]
+          world (vals (:worlds position))
+          ship (distinct (player world))
+          target-world (vals (:worlds position))
+          :when (can-navigate-between-worlds? target-world world)
+          :when (not (abandon-homeworld? position player (:key world)))
+          :let [move (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world))]]
+      [(play-move position move) (conj moves move)])
+    (for [pos-and-moves list-of-positions-and-moves
+          :let [position (first pos-and-moves)
+                moves (second pos-and-moves)
+                player (:turn position)
+                bank (:bank position)]
+          world (vals (:worlds position))
+          ship (distinct (player world))
+          target-world-star (keys (:bank position))
+          :when (can-discover? world (get-size target-world-star))
+          :when (pos? (target-world-star bank))
+          :when (not (abandon-homeworld? position player (:key world)))
+          :let [move (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star)]]
+      [(play-move position move) (conj moves move)])))
+
+(defn find-all-move-sacrifice-moves
+  "For every world, for every unique player green ship perform a sacrifice and then find all combinations of move moves
+  after that point."
+  [position player]
+  (for [world (vals (:worlds position))
+        ship (distinct (player world))
+        :when (= "y" (get-colour ship))
+        :let [ship-size (get-size-int ship)
+              sacrifice-move (create-move :move-type :sacrifice :ship ship :source-world (:key world))
+              position-after-move (play-move position sacrifice-move)
+              move-combos (as-> [[position-after-move []]] $
+                            (iterate find-all-move-moves-after-position $)
+                            (nth $ ship-size)
+                            (map second $))]
+        child-move-combo move-combos]
+    (assoc sacrifice-move :child-moves child-move-combo)))
 
 (defn perform-homeworld
   "Initial move to establish a homeship with two stars and ship."
