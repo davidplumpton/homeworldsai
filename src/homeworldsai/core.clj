@@ -61,6 +61,7 @@
   (.substring (str pyramid) 2 3))
 
 (defn get-size-int
+  "Return the pyramid size as an int."
   [pyramid]
   (Integer/parseInt (get-size pyramid)))
 
@@ -92,7 +93,9 @@
   [col colour]
   (filter #(not= colour (get-colour %)) col))
 
-(defn replace-pyramid [col old-pyramid new-pyramid]
+(defn replace-pyramid
+  "In the collection replace the old pyramid with a new one."
+  [col old-pyramid new-pyramid]
   (conj (remove-one-pyramid col old-pyramid) new-pyramid))
 
 (defn perform-trade
@@ -143,8 +146,9 @@
         ship-moved (update-in removed [:worlds dest-world-key (:turn position)] conj ship)]
     (return-star-to-bank-if-empty ship-moved source-world-key)))
 
-(defn create-world [stars key]
+(defn create-world
   "Define the structure of a world."
+  [stars key]
   (into
     {:stars stars :key key}
     (for [player players] [player []])))
@@ -222,9 +226,8 @@
 (defn create-move
   "Represent a possible move with its parameters."
   [& {:keys [:move-type :source-world :colour :ship :dest-world :target-ship]}]
-  (conj
-    {:move-type move-type :source-world source-world :ship ship
-     :colour colour :dest-world dest-world :target-ship target-ship}))
+  {:move-type move-type :source-world source-world :ship ship
+     :colour colour :dest-world dest-world :target-ship target-ship})
 
 (defn find-all-build-moves
   "For every world with green available make a create move for each player ship colour."
