@@ -2,6 +2,8 @@
 
 An AI for the [Looney Pyramids](http://www.looneylabs.com/looney-pyramids) game of [Homeworlds](http://www.looneylabs.com/rules/homeworlds). Written as an MCTS algorithm coded in Clojure.
 
+Work in progress; it's only generating legal moves at this stage.
+
 ## Installation
 
 Download from http://example.com/FIXME.
