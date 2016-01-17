@@ -433,6 +433,97 @@
         (update-in [:next-world] inc)
         rebuild-bank-in-position)))
 
+(defn random-build
+  "Construct a build move at random from the worlds where building can be performed."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        combos (for [world (vals (:worlds position))
+                     :when (colour-available-in-world? world "g" player) 
+                     ship (distinct (player world))
+                     :when (pos? (ship bank))]
+                 [world ship])]
+    (when (seq combos)
+      (let [[world ship] (rand-nth combos)]
+        (create-move :move-type :build :source-world (:key world) :colour (get-colour ship) :ship ship)))))
+
+(defn random-trade
+  "Construct a trade move at random from the worlds where trading can be performed."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        combos (for [world (vals (:worlds position))
+                     :when (colour-available-in-world? world "b" player) 
+                     ship (distinct (player world))
+                     :let [ship-colour (get-colour ship)]
+                     target-colour all-colours
+                     :when (not= target-colour ship-colour)
+                     :let [target-ship (keyword (str target-colour (get-size ship)))]
+                     :when (pos? (target-ship bank))]
+                  [world ship target-ship])]
+     (when (seq combos)
+       (let [[world ship target-ship] (rand-nth combos)]
+         (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))))
+
+(defn random-attack
+  "Construct an attack move at random from the worlds where trading can be performed."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        combos (for [world (vals (:worlds position))
+                     :when (colour-available-in-world? world "r" player) 
+                     target-ship (distinct (world (other-player player)))
+                     :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+                     :when (>= biggest-ship-size (get-size-int target-ship))]
+                 [world target-ship])]
+    (when (seq combos)
+      (let [[world target-ship] (rand-nth combos)]
+        (create-move :move-type :attack :source-world (:key world) :target-ship target-ship)))))
+
+(defn random-move
+  "A random movement move."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        combos (for [world (vals (:worlds position))
+                     :when (colour-available-in-world? world "y" player) 
+                     ship (distinct (player world))
+                     target-world (vals (:worlds position))
+                     :when (can-navigate-between-worlds? target-world world)
+                     :when (not (abandon-homeworld? position player (:key world)))]
+                 [world ship target-world])]
+    (when (seq combos)
+      (let [[world ship target-world] (rand-nth combos)]
+        (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world))))))
+
+(defn random-discover
+  "A random discover move."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        combos (for [world (vals (:worlds position))
+                     :when (colour-available-in-world? world "y" player) 
+                     ship (distinct (player world))
+                     target-world-star (keys (:bank position))
+                     :when (can-discover? world (get-size target-world-star))
+                     :when (pos? (target-world-star bank))
+                     :when (not (abandon-homeworld? position player (:key world)))]
+                 [world ship target-world-star])]
+    (when (seq combos)
+      (let [[world ship target-world-star] (rand-nth combos)]
+        (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star)))))
+
+(defn random-play
+  "A random random move."
+  [position]
+  (let [r (rand)]
+    (condp > r
+      0.2 (random-build position)
+      0.4 (random-trade position)
+      0.6 (random-attack position)
+      0.8 (random-move position)
+      9.9 (random-discover position))))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
