@@ -69,7 +69,7 @@
   "Find the smallest piece available in the bank or nil if none."
   [position ship]
   (let [bank (:bank position)
-        colour (second (str ship)) 
+        colour (second (str ship))
         pieces (for [size [1 2 3]] (keyword (str colour size)))]
     (first (filter (fn [piece] (pos? (piece bank))) pieces))))
 
@@ -202,7 +202,7 @@
 
 (defmethod play-move :attack
   [position move]
-  (perform-attack position (:ship move) (:target-ship move) (:source-world move))) 
+  (perform-attack position (:ship move) (:target-ship move) (:source-world move)))
 
 (defmethod play-move :move
   [position move]
@@ -233,7 +233,7 @@
   "For every world with green available make a create move for each player ship colour."
   [position player]
   (for [world (vals (:worlds position))
-        :when (colour-available-in-world? world "g" player) 
+        :when (colour-available-in-world? world "g" player)
         :let [ships (player world)]
         colour (distinct (map get-colour ships))
         :let [ship (some #(when (= colour (get-colour %)) %) ships)]]
@@ -256,7 +256,7 @@
   "For every world with red available make an attack move for each enemy ship not larger than the largest ship."
   [position player]
   (for [world (vals (:worlds position))
-        :when (colour-available-in-world? world "r" player) 
+        :when (colour-available-in-world? world "r" player)
         :when (pos? (count (player world)))
         :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
         enemy-ship (distinct (get world (other-player player)))
@@ -439,7 +439,7 @@
   (let [player (:turn position)
         bank (:bank position)
         combos (for [world (vals (:worlds position))
-                     :when (colour-available-in-world? world "g" player) 
+                     :when (colour-available-in-world? world "g" player)
                      ship (distinct (player world))
                      :when (pos? (ship bank))]
                  [world ship])]
@@ -453,7 +453,7 @@
   (let [player (:turn position)
         bank (:bank position)
         combos (for [world (vals (:worlds position))
-                     :when (colour-available-in-world? world "b" player) 
+                     :when (colour-available-in-world? world "b" player)
                      ship (distinct (player world))
                      :let [ship-colour (get-colour ship)]
                      target-colour all-colours
@@ -471,7 +471,7 @@
   (let [player (:turn position)
         bank (:bank position)
         combos (for [world (vals (:worlds position))
-                     :when (colour-available-in-world? world "r" player) 
+                     :when (colour-available-in-world? world "r" player)
                      target-ship (distinct (world (other-player player)))
                      :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
                      :when (>= biggest-ship-size (get-size-int target-ship))]
@@ -486,7 +486,7 @@
   (let [player (:turn position)
         bank (:bank position)
         combos (for [world (vals (:worlds position))
-                     :when (colour-available-in-world? world "y" player) 
+                     :when (colour-available-in-world? world "y" player)
                      ship (distinct (player world))
                      target-world (vals (:worlds position))
                      :when (can-navigate-between-worlds? target-world world)
@@ -502,7 +502,7 @@
   (let [player (:turn position)
         bank (:bank position)
         combos (for [world (vals (:worlds position))
-                     :when (colour-available-in-world? world "y" player) 
+                     :when (colour-available-in-world? world "y" player)
                      ship (distinct (player world))
                      target-world-star (keys (:bank position))
                      :when (can-discover? world (get-size target-world-star))
