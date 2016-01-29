@@ -524,6 +524,89 @@
       0.8 (random-move position)
       9.9 (random-discover position))))
 
+(defn count-build-moves
+  "Count how many different build moves are possible.
+  Just like finding the moves, but needs to be much faster."
+  [position]
+  (let [player (:turn position)
+        total (atom 0)]
+    (doseq [world (vals (:worlds position))
+            :when (colour-available-in-world? world "g" player)
+            :let [ships (player world)]
+            colour (distinct (map get-colour ships))]
+      (swap! total inc))
+    @total))
+
+(defn count-trade-moves
+  "For every world with blue available make a trade move for each player ship colour and size."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        total (atom 0)]
+    (doseq [world (vals (:worlds position))
+            :when (colour-available-in-world? world "b" player)
+            ship (distinct (player world))
+            target-colour all-colours
+            :when (not= target-colour (get-colour ship))
+            :let [target-ship (keyword (str target-colour (get-size ship)))]
+            :when (pos? (target-ship bank))]
+      (swap! total inc))
+    @total))
+
+(defn count-attack-moves
+  "For every world with red available make an attack move for each enemy ship not larger than the largest ship."
+  [position]
+  (let [player (:turn position)
+        total (atom 0)]
+    (doseq [world (vals (:worlds position))
+            :when (colour-available-in-world? world "r" player)
+            :when (pos? (count (player world)))
+            :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+            enemy-ship (distinct (get world (other-player player)))
+            :when (>= biggest-ship-size (get-size-int enemy-ship))]
+      (swap! total inc))
+    @total))
+
+(defn count-move-moves
+  "For every world with yellow available for each distinct ship for each world that the ship can navigate to."
+  [position]
+  (let [player (:turn position)
+        total (atom 0)]
+    (doseq [world (vals (:worlds position))
+            :when (colour-available-in-world? world "y" player)
+            ship (distinct (player world))
+            target-world (vals (:worlds position))
+            :when (can-navigate-between-worlds? target-world world)
+            :when (not (abandon-homeworld? position player (:key world)))]
+      (swap! total inc))
+    @total))
+
+(defn count-discover-moves
+  "For every world with yellow available for each distinct ship for each distinct pyramid available in the bank that it can navigate to."
+  [position]
+  (let [player (:turn position)
+        bank (:bank position)
+        total (atom 0)]
+    (doseq [world (vals (:worlds position))
+            :when (colour-available-in-world? world "y" player)
+            ship (distinct (player world))
+            target-world-star (keys (:bank position))
+            :when (can-discover? world (get-size target-world-star))
+            :when (pos? (target-world-star bank))
+            :when (not (abandon-homeworld? position player (:key world)))]
+      (swap! total inc))
+    @total))
+
+(defn count-possible-moves
+  "Count the number of possible moves quickly."
+  [position]
+  (+
+    (count-build-moves position)
+    (count-trade-moves position)
+    (count-attack-moves position)
+    (count-move-moves position)
+    (count-discover-moves position)))
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
