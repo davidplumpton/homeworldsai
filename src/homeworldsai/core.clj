@@ -31,6 +31,15 @@
   [position]
   (assoc position :bank (rebuild-bank position)))
 
+;; Needs to be extended to multiple players
+(defn other-player [player]
+  (if (= :player1 player) :player2 :player1))
+
+(defn next-turn
+  "It's now the other player's turn."
+  [position]
+  (update-in position [:turn] other-player))
+
 ;; --------- Testing support code
 (defn create-sample-position
   "Something to work with."
@@ -44,11 +53,18 @@
                   :next-world 5)]
     (rebuild-bank-in-position pos)))
 
-;; -----------------------
+(declare perform-homeworld)
 
-;; Needs to be extended to multiple players
-(defn other-player [player]
-  (if (= :player1 player) :player2 :player1))
+(defn create-start-position
+  []
+  (-> initial-position
+    (perform-homeworld :r1 :b2 :g3)
+    next-turn
+    (perform-homeworld :y1 :b3 :g3)
+    next-turn
+    rebuild-bank-in-position))
+
+;; -----------------------
 
 (defn get-colour
   "Return the colour as a string."
@@ -101,7 +117,10 @@
 (defn perform-trade
   "Trade an existing ship with another colour if available."
   [position old-ship new-ship world-key]
-  (update-in position [:worlds world-key (:turn position)] replace-pyramid old-ship new-ship))
+  (-> position
+    (update-in [:worlds world-key (:turn position)] replace-pyramid old-ship new-ship)
+    (update-in [:bank old-ship] inc)
+    (update-in [:bank new-ship] dec)))
 
 (defn perform-attack
   "A player's ship is captured by the attacker."
@@ -280,7 +299,7 @@
   (not (some #(= size (get-size %)) (:stars world1))))
 
 (defn abandon-homeworld?
-  "True if the last ship is being moved out of the homeworld."
+  "True if the last ship is being moved out (or sacrificed) of the homeworld."
   [postion source-world-key]
   (let [player (:turn postion)
         ships (get-in postion [:worlds source-world-key player])]
@@ -403,6 +422,7 @@
   [position colour find-moves-fn]
   (let [player (:turn position)]
     (for [world (vals (:worlds position))
+          :when (not (abandon-homeworld? position (:key world)))
           ship (distinct (player world))
           :when (= colour (get-colour ship))
           :let [ship-size (get-size-int ship)
@@ -613,6 +633,30 @@
     (count-attack-moves position)
     (count-move-moves position)
     (count-discover-moves position)))
+
+(defn score
+  "Determine a score for how favourable the position is for the current player.
+  Consider the number of legel moves each player has."
+  [move position]
+  (let [after (play-move position move)]
+    (+
+      (count-possible-moves after)
+      (- (count-possible-moves (update-in after [:turn] other-player))))))
+
+(defn find-best-move
+  "Try to find the best move in a position."
+  [position]
+  (let [scores (for [move (find-all-possible-moves position)] [move (score move position)])
+        dummy-val [:dummy -999999]
+        best (reduce (fn [a b] (if (>= (second a) (second b)) a b)) dummy-val scores)]
+    (first best)))
+
+(defn play-single-move
+  "Play a move and change the player to move next time."
+  [position move]
+  (-> position
+      (play-move move)
+      (update-in [:turn] other-player)))
 
 (defn -main
   "I don't do a whole lot ... yet."
