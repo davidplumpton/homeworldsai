@@ -278,9 +278,9 @@
   [position]
   (let [player (:turn position)]
     (for [world (vals (:worlds position))
-          :when (colour-available-in-world? world "r" player)
           :when (pos? (count (player world)))
-          :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+          :when (colour-available-in-world? world "r" player)
+          :let [biggest-ship-size (reduce max 0 (map get-size-int (player world)))]
           enemy-ship (distinct (get world (other-player player)))
           :when (>= biggest-ship-size (get-size-int enemy-ship))]
       (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship))))
@@ -379,7 +379,8 @@
               player (:turn position)
               bank (:bank position)]
         world (vals (:worlds position))
-        :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+        :when (pos? (count (player world)))
+        :let [biggest-ship-size (reduce max 0 (map get-size-int (player world)))]
         enemy-ship (distinct (get world (other-player player)))
         :when (>= biggest-ship-size (get-size-int enemy-ship))
         :let [move (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship)]]
@@ -493,14 +494,15 @@
          (create-move :move-type :trade :source-world (:key world) :ship ship :target-ship target-ship)))))
 
 (defn random-attack
-  "Construct an attack move at random from the worlds where trading can be performed."
+  "Construct an attack move at random from the worlds where attacking can be performed."
   [position]
   (let [player (:turn position)
         bank (:bank position)
         combos (for [world (vals (:worlds position))
+                     :when (pos? (count (player world)))
                      :when (colour-available-in-world? world "r" player)
                      target-ship (distinct (world (other-player player)))
-                     :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+                     :let [biggest-ship-size (reduce max 0 (map get-size-int (player world)))]
                      :when (>= biggest-ship-size (get-size-int target-ship))]
                  [world target-ship])]
     (when (seq combos)
@@ -588,7 +590,7 @@
     (doseq [world (vals (:worlds position))
             :when (colour-available-in-world? world "r" player)
             :when (pos? (count (player world)))
-            :let [biggest-ship-size (reduce max (map get-size-int (player world)))]
+            :let [biggest-ship-size (reduce max 0 (map get-size-int (player world)))]
             enemy-ship (distinct (get world (other-player player)))
             :when (>= biggest-ship-size (get-size-int enemy-ship))]
       (swap! total inc))
