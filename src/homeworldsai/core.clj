@@ -3,11 +3,13 @@
 
 (defonce all-colours ["r" "g" "b" "y"])
 
+;; Use keywords to represent pyramids, e.g. :b2 is a medium blue.
+
 (defonce pyramids (for [colour all-colours size ["1" "2" "3"]] (keyword (str colour size))))
 
 (defonce players [:player1 :player2])
 
-;; Three of everything
+;; Three of each pyramid.
 
 (defonce initial-bank (zipmap pyramids (repeat 3)))
 
@@ -64,11 +66,11 @@
   "A sample start position (i.e. just the homeworlds)."
   []
   (-> initial-position
-    (perform-homeworld :r1 :b2 :g3)
-    next-turn
-    (perform-homeworld :y1 :b3 :g3)
-    next-turn
-    rebuild-bank-in-position))
+      (perform-homeworld :r1 :b2 :g3)
+      next-turn
+      (perform-homeworld :y1 :b3 :g3)
+      next-turn
+      rebuild-bank-in-position))
 
 ;; -----------------------
 
@@ -94,6 +96,8 @@
         colour (second (str ship))
         pieces (for [size [1 2 3]] (keyword (str colour size)))]
     (first (filter (fn [piece] (pos? (piece bank))) pieces))))
+
+;; # Code for carrying out the various kinds of moves
 
 (defn perform-build
   "Build a new ship in a given world."
@@ -124,16 +128,16 @@
   "Trade an existing ship with another colour if available."
   [position old-ship new-ship world-key]
   (-> position
-    (update-in [:worlds world-key (:turn position)] replace-pyramid old-ship new-ship)
-    (update-in [:bank old-ship] inc)
-    (update-in [:bank new-ship] dec)))
+      (update-in [:worlds world-key (:turn position)] replace-pyramid old-ship new-ship)
+      (update-in [:bank old-ship] inc)
+      (update-in [:bank new-ship] dec)))
 
 (defn perform-attack
   "A player's ship is captured by the attacker."
   [position attacking-ship victim-ship world-key]
   (-> position
-    (update-in [:worlds world-key (other-player (:turn position))] remove-one-pyramid victim-ship)
-    (update-in [:worlds world-key (:turn position)] conj victim-ship)))
+      (update-in [:worlds world-key (other-player (:turn position))] remove-one-pyramid victim-ship)
+      (update-in [:worlds world-key (:turn position)] conj victim-ship)))
 
 (defn get-pyramid-matching-colour
   "Return a pyramid matching the colour, or nil."
@@ -165,15 +169,16 @@
       (return-star-to-bank position world-key)
       position)))
 
-;; # Code for carrying out the various kinds of moves
+;; Move and discover are treated as separate kinds of moves due to the different
+;; rules that must be considered.
 
 (defn perform-move
   "A player's ship moves from one world to another. Return a star to the bank if necessary."
   [position ship source-world-key dest-world-key]
   (-> position
-    (update-in [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
-    (update-in [:worlds dest-world-key (:turn position)] conj ship)
-    (return-star-to-bank-if-empty source-world-key)))
+      (update-in [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
+      (update-in [:worlds dest-world-key (:turn position)] conj ship)
+      (return-star-to-bank-if-empty source-world-key)))
 
 (defn create-world
   "Define the structure of a world."
@@ -216,9 +221,9 @@
   "Four or more things of one colour in a system, so they get removed."
   [position colour world-key]
   (-> position
-    (remove-ships-and-maybe-a-star colour world-key)
-    (return-star-to-bank-if-empty world-key)
-    (rebuild-bank-in-position)))
+      (remove-ships-and-maybe-a-star colour world-key)
+      (return-star-to-bank-if-empty world-key)
+      (rebuild-bank-in-position)))
 
 (defmulti play-move
   "Allows for the various kinds of moves, based on `:move-type`"
@@ -366,6 +371,9 @@
           :when (can-discover? position world target-world-star)]
       (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star))))
 
+;; The following code is concerned with sacrifice moves and their corresponding follow up moves.
+;; It seems like there's always going to be quite a lot of complexity to handle.
+
 (defn find-all-build-moves-after-position
   "From a list of positions and moves find more build moves.
   Return them as a longer list of positions and list of moves."
@@ -458,9 +466,9 @@
                 sacrifice-move  (create-move :move-type :sacrifice :ship ship :source-world (:key world))
                 position-after-move (play-move position sacrifice-move)
                 move-combos (as-> [[position-after-move []]] $
-                              (iterate find-moves-fn $)
-                              (nth $ ship-size)
-                              (map second $))]
+                                  (iterate find-moves-fn $)
+                                  (nth $ ship-size)
+                                  (map second $))]
           child-move-combo move-combos]
       (assoc sacrifice-move :child-moves child-move-combo))))
 
