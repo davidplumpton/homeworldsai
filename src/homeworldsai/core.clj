@@ -8,9 +8,11 @@
 (defonce players [:player1 :player2])
 
 ;; Three of everything
+
 (defonce initial-bank (zipmap pyramids (repeat 3)))
 
 ;; Return a representation of the starting position.
+
 (defonce initial-position
   {:turn :player1, :worlds {}
    :next-world 0, :bank initial-bank})
@@ -32,6 +34,7 @@
   (assoc position :bank (rebuild-bank position)))
 
 ;; Needs to be extended to multiple players
+
 (defn other-player [player]
   (if (= :player1 player) :player2 :player1))
 
@@ -40,7 +43,9 @@
   [position]
   (update-in position [:turn] other-player))
 
-;; --------- Testing support code
+;; ---------
+;; ## Testing support code
+
 (defn create-sample-position
   "Something to work with."
   []
@@ -56,6 +61,7 @@
 (declare perform-homeworld)
 
 (defn create-start-position
+  "A sample start position (i.e. just the homeworlds)."
   []
   (-> initial-position
     (perform-homeworld :r1 :b2 :g3)
@@ -159,6 +165,8 @@
       (return-star-to-bank position world-key)
       position)))
 
+;; # Code for carrying out the various kinds of moves
+
 (defn perform-move
   "A player's ship moves from one world to another. Return a star to the bank if necessary."
   [position ship source-world-key dest-world-key]
@@ -196,6 +204,7 @@
       (return-star-to-bank-if-empty world-key)))
 
 (defn remove-ships-and-maybe-a-star
+  "Remove the ships and/or star matching the colour from this world."
   [position colour world-key]
   (if (get-pyramid-matching-colour (get-in position [:worlds world-key :stars]) colour)
     (return-star-to-bank position world-key :colour colour)
@@ -211,7 +220,9 @@
     (return-star-to-bank-if-empty world-key)
     (rebuild-bank-in-position)))
 
-(defmulti play-move (fn [_ move] (:move-type move)))
+(defmulti play-move
+  "Allows for the various kinds of moves, based on `:move-type`"
+  (fn [_ move] (:move-type move)))
 
 (defmethod play-move :build
   [position move]
@@ -237,6 +248,15 @@
   [position move]
   (perform-sacrifice position (:ship move) (:source-world move)))
 
+(defn play-single-move
+  "Play a move and change the player to move next time."
+  [position move]
+  (-> position
+      (play-move move)
+      (update-in [:turn] other-player)))
+
+;; ## Code for finding the possible moves
+
 (defn colour-available-in-world?
   "Is there a star or one of the players ships of this colour in the world?"
   [world colour player]
@@ -249,6 +269,9 @@
   [& {:keys [:move-type :source-world :colour :ship :dest-world :target-ship]}]
   {:move-type move-type :source-world source-world :ship ship
      :colour colour :dest-world dest-world :target-ship target-ship})
+
+;; Much of the following code uses `for` clauses to find all the combinations
+;; subject to certain restrictions expressed by `:when`
 
 (defn find-all-build-moves
   "For every world with green available make a create move for each player ship colour."
@@ -466,6 +489,8 @@
         (update-in [:next-world] inc)
         rebuild-bank-in-position)))
 
+;; ## Code for finding random moves for MCTS
+
 (defn random-build
   "Construct a build move at random from the worlds where building can be performed."
   [position]
@@ -555,6 +580,8 @@
       0.8 (random-move position)
       9.9 (random-discover position))))
 
+;; ## Code for quickly counting the number of different moves
+
 (defn count-build-moves
   "Count how many different build moves are possible.
   Just like finding the moves, but needs to be much faster."
@@ -635,6 +662,8 @@
     (count-move-moves position)
     (count-discover-moves position)))
 
+;; ## Code to locate a reasonable move to play
+
 (defn score
   "Determine a score for how favourable the position is for the current player.
   Consider the number of legel moves each player has."
@@ -651,13 +680,6 @@
         dummy-val [:dummy -999999]
         best (reduce (fn [a b] (if (>= (second a) (second b)) a b)) dummy-val scores)]
     (first best)))
-
-(defn play-single-move
-  "Play a move and change the player to move next time."
-  [position move]
-  (-> position
-      (play-move move)
-      (update-in [:turn] other-player)))
 
 (defn -main
   "I don't do a whole lot ... yet."
