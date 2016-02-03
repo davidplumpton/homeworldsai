@@ -125,8 +125,9 @@
 (defn perform-attack
   "A player's ship is captured by the attacker."
   [position attacking-ship victim-ship world-key]
-  (let [removed (update-in position [:worlds world-key (other-player (:turn position))] remove-one-pyramid victim-ship)]
-    (update-in removed [:worlds world-key (:turn position)] conj victim-ship)))
+  (-> position
+    (update-in [:worlds world-key (other-player (:turn position))] remove-one-pyramid victim-ship)
+    (update-in [:worlds world-key (:turn position)] conj victim-ship)))
 
 (defn get-pyramid-matching-colour
   "Return a pyramid matching the colour, or nil."
@@ -161,9 +162,10 @@
 (defn perform-move
   "A player's ship moves from one world to another. Return a star to the bank if necessary."
   [position ship source-world-key dest-world-key]
-  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
-        ship-moved (update-in removed [:worlds dest-world-key (:turn position)] conj ship)]
-    (return-star-to-bank-if-empty ship-moved source-world-key)))
+  (-> position
+    (update-in [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
+    (update-in [:worlds dest-world-key (:turn position)] conj ship)
+    (return-star-to-bank-if-empty source-world-key)))
 
 (defn create-world
   "Define the structure of a world."
@@ -175,10 +177,10 @@
 (defn perform-discover
   "A player's ship moves to a newly discovered world. Return a star to the bank if necessary."
   [position ship source-world-key star]
-  (let [removed (update-in position [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
-        dest-world-key (:next-world position)
+  (let [dest-world-key (:next-world position)
         new-world (create-world [star] dest-world-key)]
-    (-> removed
+    (-> position
+        (update-in [:worlds source-world-key (:turn position)] remove-one-pyramid ship)
         (assoc-in [:worlds dest-world-key] new-world)
         (update-in [:bank star] dec)
         (update-in [:worlds dest-world-key (:turn position)] conj ship)
