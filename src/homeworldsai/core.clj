@@ -3,7 +3,7 @@
 
 (defonce all-colours ["r" "g" "b" "y"])
 
-(defonce pyramids (for [colour all-colours size ["1" "2" "3"]] (keyword (.concat colour size))))
+(defonce pyramids (for [colour all-colours size ["1" "2" "3"]] (keyword (str colour size))))
 
 (defonce players [:player1 :player2])
 
@@ -285,29 +285,38 @@
           :when (>= biggest-ship-size (get-size-int enemy-ship))]
       (create-move :move-type :attack :source-world (:key world) :target-ship enemy-ship))))
 
-(defn can-navigate-between-worlds?
-  "Ships can navigate between worlds if there are no stars of the same size."
-  [world1 world2]
-  (let [world1-sizes (map get-size (:stars world1))
-        world2-sizes (map get-size (:stars world2))
-        all-sizes (concat world1-sizes world2-sizes)]
-    (= (count all-sizes) (count (distinct all-sizes)))))
-
-(defn can-discover?
-  "Can discover a new world if the size is different to any of the stars in the source world."
-  [world1 size]
-  (not (some #(= size (get-size %)) (:stars world1))))
-
 (defn abandon-homeworld?
   "True if the last ship is being moved out (or sacrificed) of the homeworld."
-  [postion source-world-key]
-  (let [player (:turn postion)
-        ships (get-in postion [:worlds source-world-key player])]
+  [position source-world-key]
+  (let [player (:turn position)
+        ships (get-in position [:worlds source-world-key player])]
     (and
       (= 1 (count ships))
       (or
         (and (= player :player1) (= source-world-key 0))
         (and (= player :player2) (= source-world-key 1))))))
+
+(defn can-navigate-between-worlds?
+  "Ships can navigate between worlds if there are no stars of the same size.
+  Must not abandon the homeworld (world1 is the source world)."
+  [position world1 world2]
+  (let [world1-sizes (map get-size (:stars world1))
+        world2-sizes (map get-size (:stars world2))
+        all-sizes (concat world1-sizes world2-sizes)]
+    (and
+      (= (count all-sizes) (count (distinct all-sizes)))
+      (not (abandon-homeworld? position (:key world1))))))
+
+(defn can-discover?
+  "Can discover a new world if the size is different to any of the stars in the source world.
+  The target world star must be in the bank and the homeworld must not be abandoned."
+  [position world target-world-star]
+  (let [size (get-size (world (:turn position)))
+        target-world-size (get-size target-world-star)]
+    (and
+      (pos? (target-world-star (:bank position)))
+      (not (abandon-homeworld? position (:key world)))
+      (not (some #(= size (get-size %)) (:stars world))))))
 
 (defn find-all-move-moves
   "For every world with yellow available for each distinct ship for each world that the ship can navigate to."
@@ -317,8 +326,7 @@
           :when (colour-available-in-world? world "y" player)
           ship (distinct (player world))
           target-world (vals (:worlds position))
-          :when (can-navigate-between-worlds? target-world world)
-          :when (not (abandon-homeworld? position (:key world)))]
+          :when (can-navigate-between-worlds? position world target-world)]
       (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world)))))
 
 (defn find-all-discover-moves
@@ -329,10 +337,8 @@
     (for [world (vals (:worlds position))
           :when (colour-available-in-world? world "y" player)
           ship (distinct (player world))
-          target-world-star (keys (:bank position))
-          :when (can-discover? world (get-size target-world-star))
-          :when (pos? (target-world-star bank))
-          :when (not (abandon-homeworld? position (:key world)))]
+          target-world-star (keys bank)
+          :when (can-discover? position world target-world-star)]
       (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star))))
 
 (defn find-all-build-moves-after-position
@@ -399,8 +405,7 @@
           world (vals (:worlds position))
           ship (distinct (player world))
           target-world (vals (:worlds position))
-          :when (can-navigate-between-worlds? target-world world)
-          :when (not (abandon-homeworld? position (:key world)))
+          :when (can-navigate-between-worlds? position world target-world)
           :let [move (create-move :move-type :move :ship ship :source-world (:key world) :dest-world (:key target-world))]]
       [(play-move position move) (conj moves move)])
     (for [pos-and-moves list-of-positions-and-moves
@@ -411,9 +416,7 @@
           world (vals (:worlds position))
           ship (distinct (player world))
           target-world-star (keys (:bank position))
-          :when (can-discover? world (get-size target-world-star))
-          :when (pos? (target-world-star bank))
-          :when (not (abandon-homeworld? position (:key world)))
+          :when (can-discover? position world target-world-star)
           :let [move (create-move :move-type :discover :ship ship :source-world (:key world) :dest-world target-world-star)]]
       [(play-move position move) (conj moves move)])))
 
@@ -518,8 +521,7 @@
                      :when (colour-available-in-world? world "y" player)
                      ship (distinct (player world))
                      target-world (vals (:worlds position))
-                     :when (can-navigate-between-worlds? target-world world)
-                     :when (not (abandon-homeworld? position (:key world)))]
+                     :when (can-navigate-between-worlds? position world target-world)]
                  [world ship target-world])]
     (when (seq combos)
       (let [[world ship target-world] (rand-nth combos)]
@@ -534,9 +536,7 @@
                      :when (colour-available-in-world? world "y" player)
                      ship (distinct (player world))
                      target-world-star (keys (:bank position))
-                     :when (can-discover? world (get-size target-world-star))
-                     :when (pos? (target-world-star bank))
-                     :when (not (abandon-homeworld? position (:key world)))]
+                     :when (can-discover? position world target-world-star)]
                  [world ship target-world-star])]
     (when (seq combos)
       (let [[world ship target-world-star] (rand-nth combos)]
@@ -605,8 +605,7 @@
             :when (colour-available-in-world? world "y" player)
             ship (distinct (player world))
             target-world (vals (:worlds position))
-            :when (can-navigate-between-worlds? target-world world)
-            :when (not (abandon-homeworld? position (:key world)))]
+            :when (can-navigate-between-worlds? position world target-world)]
       (swap! total inc))
     @total))
 
@@ -620,9 +619,7 @@
             :when (colour-available-in-world? world "y" player)
             ship (distinct (player world))
             target-world-star (keys (:bank position))
-            :when (can-discover? world (get-size target-world-star))
-            :when (pos? (target-world-star bank))
-            :when (not (abandon-homeworld? position (:key world)))]
+            :when (can-discover? position world target-world-star)]
       (swap! total inc))
     @total))
 
