@@ -415,8 +415,7 @@
   (for [pos-and-moves list-of-positions-and-moves
         :let [position (first pos-and-moves)
               moves (second pos-and-moves)
-              player (:turn position)
-              bank (:bank position)]
+              player (:turn position)]
         world (vals (:worlds position))
         :when (pos? (count (player world)))
         :let [biggest-ship-size (reduce max 0 (map get-size-int (player world)))]
@@ -475,17 +474,16 @@
 (defn find-all-possible-moves
   "Return a list of all possible moves from this position."
   [position]
-  (let [player (:turn position)]
-    (concat
-      (find-all-build-moves position)
-      (find-all-trade-moves position)
-      (find-all-attack-moves position)
-      (find-all-move-moves position)
-      (find-all-discover-moves position)
-      (find-all-sacrifice-moves position "g" find-all-build-moves-after-position)
-      (find-all-sacrifice-moves position "b" find-all-trade-moves-after-position)
-      (find-all-sacrifice-moves position "r" find-all-attack-moves-after-position)
-      (find-all-sacrifice-moves position "y" find-all-move-moves-after-position))))
+  (concat
+    (find-all-build-moves position)
+    (find-all-trade-moves position)
+    (find-all-attack-moves position)
+    (find-all-move-moves position)
+    (find-all-discover-moves position)
+    (find-all-sacrifice-moves position "g" find-all-build-moves-after-position)
+    (find-all-sacrifice-moves position "b" find-all-trade-moves-after-position)
+    (find-all-sacrifice-moves position "r" find-all-attack-moves-after-position)
+    (find-all-sacrifice-moves position "y" find-all-move-moves-after-position)))
 
 (defn perform-homeworld
   "Initial move to establish a homeship with two stars and ship."
@@ -535,7 +533,6 @@
   "Construct an attack move at random from the worlds where attacking can be performed."
   [position]
   (let [player (:turn position)
-        bank (:bank position)
         combos (for [world (vals (:worlds position))
                      :when (pos? (count (player world)))
                      :when (colour-available-in-world? world "r" player)
@@ -551,7 +548,6 @@
   "A random movement move."
   [position]
   (let [player (:turn position)
-        bank (:bank position)
         combos (for [world (vals (:worlds position))
                      :when (colour-available-in-world? world "y" player)
                      ship (distinct (player world))
@@ -570,7 +566,7 @@
         combos (for [world (vals (:worlds position))
                      :when (colour-available-in-world? world "y" player)
                      ship (distinct (player world))
-                     target-world-star (keys (:bank position))
+                     target-world-star (keys bank)
                      :when (can-discover? position world target-world-star)]
                  [world ship target-world-star])]
     (when (seq combos)
@@ -655,7 +651,7 @@
     (doseq [world (vals (:worlds position))
             :when (colour-available-in-world? world "y" player)
             ship (distinct (player world))
-            target-world-star (keys (:bank position))
+            target-world-star (keys bank)
             :when (can-discover? position world target-world-star)]
       (swap! total inc))
     @total))
